@@ -63,17 +63,8 @@ usb_host_port_obj_t *common_hal_usb_host_port_construct(const mcu_pin_obj_t *dp,
         raise_ValueError_invalid_pins();
     }
     usb_host_port_obj_t *self = &usb_host_instance;
-    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    // These are real GPIOs: keep them out of reach of other code. They are never
-    // reset (see Pin.c), so the pad setup survives VM reloads like the singleton
-    // does, but the claim itself has to be made again after each reload.
-    if (self->dp == NULL) {
-        assert_pin_free(dp);
-        assert_pin_free(dm);
-    }
-    claim_pin(dp);
-    claim_pin(dm);
-    #endif
+    // On the S2/S3 the pads are real GPIOs, but Pin.c never resets them and marks
+    // them in use at every reset (as for USB device), so Python cannot take them.
     if (self->dp != NULL) {
         return self;
     }
