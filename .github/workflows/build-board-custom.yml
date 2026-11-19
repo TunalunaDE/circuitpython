@@ -91,6 +91,7 @@ jobs:
       with:
         action: cache
         target: ${{ inputs.board }}
+        version: true
     - name: Set up external
       uses: ./.github/actions/deps/external
       with:
