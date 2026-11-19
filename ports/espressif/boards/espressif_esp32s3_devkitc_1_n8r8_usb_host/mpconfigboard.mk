@@ -16,3 +16,6 @@ CIRCUITPY_ESP_PSRAM_FREQ = 80m
 
 CIRCUITPY_USB_DEVICE = 0
 CIRCUITPY_USB_HOST = 1
+
+# Native host and the MAX3421E SPI host are mutually exclusive in TinyUSB (CFG_TUH_MAX3421 replaces the DWC2 host driver).
+CIRCUITPY_MAX3421E = 0
