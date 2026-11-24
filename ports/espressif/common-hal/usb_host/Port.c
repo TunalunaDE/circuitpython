@@ -5,6 +5,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "bindings/espidf/__init__.h"
+#include "common-hal/microcontroller/Pin.h"
+#include "py/runtime.h"
 #include "shared-bindings/microcontroller/Pin.h"
 #include "shared-bindings/usb_host/Port.h"
 #include "supervisor/port.h"
@@ -23,10 +25,21 @@
 #if CIRCUITPY_USB_HOST_INSTANCE != 0
 #error "USB host requires the ESP32-S31 high-speed controller"
 #endif
+#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+// The S2 and S3 have one full-speed OTG controller (TinyUSB rhport 0) on the
+// internal PHY, on GPIO19 (D-) and GPIO20 (D+). USB device uses the same
+// controller, so with both built in the role is picked at startup
+// (CIRCUITPY_USB_ROLE_SWITCH, see supervisor/usb.h).
+#if CIRCUITPY_USB_HOST_INSTANCE != 0
+#error "USB host requires the full-speed controller (CIRCUITPY_USB_HOST_INSTANCE 0)"
+#endif
+#if CIRCUITPY_ESP_USB_SERIAL_JTAG
+#error "USB host cannot share the USB PHY with USB-Serial/JTAG"
+#endif
 #else
 #error "USB host is not supported on this chip"
 #endif
-#if CIRCUITPY_USB_DEVICE && CIRCUITPY_USB_DEVICE_INSTANCE == CIRCUITPY_USB_HOST_INSTANCE
+#if CIRCUITPY_USB_DEVICE && CIRCUITPY_USB_DEVICE_INSTANCE == CIRCUITPY_USB_HOST_INSTANCE && !CIRCUITPY_USB_ROLE_SWITCH
 #error "USB host and device must use different controllers"
 #endif
 #if !CIRCUITPY_USB_HOST_TASK
@@ -45,6 +58,19 @@
 #define USB_HOST_TASK_PRIORITY (5)
 // Bytes. Enumeration and the class and Python module callbacks run on it.
 #define USB_HOST_TASK_STACK_SIZE (4096)
+
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+#define USB_HOST_DP (&pin_GPIO20)
+#define USB_HOST_DM (&pin_GPIO19)
+#define USB_HOST_PHY_TARGET USB_PHY_TARGET_INT
+#define USB_HOST_PHY_SPEED USB_PHY_SPEED_FULL
+#else
+// The high-speed PHY has dedicated pads, not GPIOs.
+#define USB_HOST_DP (&pin_USB_HS_DP)
+#define USB_HOST_DM (&pin_USB_HS_DM)
+#define USB_HOST_PHY_TARGET USB_PHY_TARGET_UTMI
+#define USB_HOST_PHY_SPEED USB_PHY_SPEED_HIGH
+#endif
 
 static usb_host_port_obj_t usb_host_instance;
 static usb_phy_handle_t host_phy;
@@ -66,20 +92,29 @@ static void _usb_host_task(void *param) {
 }
 
 usb_host_port_obj_t *common_hal_usb_host_port_construct(const mcu_pin_obj_t *dp, const mcu_pin_obj_t *dm) {
-    // The high-speed PHY has dedicated pads, not GPIOs.
-    if (dp != &pin_USB_HS_DP || dm != &pin_USB_HS_DM) {
+    if (dp != USB_HOST_DP || dm != USB_HOST_DM) {
         raise_ValueError_invalid_pins();
     }
+    #if CIRCUITPY_USB_ROLE_SWITCH
+    // The controller already runs as a USB device (CIRCUITPY drive, REPL).
+    if (!usb_host_mode()) {
+        mp_raise_RuntimeError(MP_ERROR_TEXT("USB is in device mode. Set CIRCUITPY_USB_MODE = \"host\" in settings.toml and reset."));
+    }
+    #endif
     usb_host_port_obj_t *self = &usb_host_instance;
+    // On the S2/S3 the pads are real GPIOs, but Pin.c never resets them and marks
+    // them in use at every reset (as for USB device), so Python cannot take them.
     if (self->dp != NULL) {
         return self;
     }
 
+    // usb_new_phy() in host mode also connects the D+/D- pull-downs and
+    // forces the A-side / VBUS-valid signals, so the controller runs as host.
     const usb_phy_config_t config = {
         .controller = USB_PHY_CTRL_OTG,
-        .target = USB_PHY_TARGET_UTMI,
+        .target = USB_HOST_PHY_TARGET,
         .otg_mode = USB_OTG_MODE_HOST,
-        .otg_speed = USB_PHY_SPEED_HIGH,
+        .otg_speed = USB_HOST_PHY_SPEED,
     };
     CHECK_ESP_RESULT(usb_new_phy(&config, &host_phy));
     if (!tuh_init(TUH_OPT_RHPORT)) {

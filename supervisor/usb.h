@@ -61,6 +61,22 @@ void usb_return_boot_py_data(uint8_t *temp_storage, size_t temp_storage_size);
 // Further initialization that must be done with a VM present.
 void usb_setup_with_vm(void);
 
+// Some chips (ESP32-S2/S3) have one USB controller that can be a device or a
+// host, but not both at once. With both built in, the role is picked once at
+// startup: device by default, host when settings.toml has
+// CIRCUITPY_USB_MODE = "host". Safe mode always uses device mode, so the
+// CIRCUITPY drive stays reachable to fix the setting.
+#define CIRCUITPY_USB_ROLE_SWITCH (CIRCUITPY_USB_DEVICE && CIRCUITPY_USB_HOST && \
+    CIRCUITPY_USB_DEVICE_INSTANCE == CIRCUITPY_USB_HOST_INSTANCE)
+
+#if CIRCUITPY_USB_ROLE_SWITCH
+// Reads the setting. Call once, after the filesystem is mounted and safe mode
+// is decided, and before boot.py.
+void usb_mode_init(void);
+// True when the controller runs as a host. False until usb_mode_init().
+bool usb_host_mode(void);
+#endif
+
 
 // Propagate plug/unplug events to the MSC logic.
 #if CIRCUITPY_USB_DEVICE && CIRCUITPY_USB_MSC

@@ -154,10 +154,21 @@ void usb_cdc_set_defaults(void) {
 }
 
 bool usb_cdc_console_enabled(void) {
+    #if CIRCUITPY_USB_ROLE_SWITCH
+    // No device stack in host mode, so no CDC either.
+    if (usb_host_mode()) {
+        return false;
+    }
+    #endif
     return usb_cdc_console_is_enabled;
 }
 
 bool usb_cdc_data_enabled(void) {
+    #if CIRCUITPY_USB_ROLE_SWITCH
+    if (usb_host_mode()) {
+        return false;
+    }
+    #endif
     return usb_cdc_data_is_enabled;
 }
 
