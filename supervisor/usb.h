@@ -10,6 +10,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// For the CIRCUITPY_USB_* settings used below.
+#include "py/mpconfig.h"
+
 // Ports must call this as frequently as they can in order to keep the USB
 // connection alive and responsive.  Normally this is called from background
 // tasks after the USB IRQ handler is executed, but in specific circumstances
