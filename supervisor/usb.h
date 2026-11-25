@@ -65,19 +65,18 @@ void usb_return_boot_py_data(uint8_t *temp_storage, size_t temp_storage_size);
 void usb_setup_with_vm(void);
 
 // Some chips (ESP32-S2/S3) have one USB controller that can be a device or a
-// host, but not both at once. With both built in, the role is picked once at
-// startup: device by default, host when settings.toml has
-// CIRCUITPY_USB_MODE = "host". Safe mode always uses device mode, so the
-// CIRCUITPY drive stays reachable to fix the setting.
-#define CIRCUITPY_USB_ROLE_SWITCH (CIRCUITPY_USB_DEVICE && CIRCUITPY_USB_HOST && \
-    CIRCUITPY_USB_DEVICE_INSTANCE == CIRCUITPY_USB_HOST_INSTANCE)
+// host, but not both at once. With both built in, it is a device unless boot.py
+// creates a usb_host.Port, which takes the controller as a host before
+// usb_init() runs. Safe mode does not run boot.py, so it is always a device and
+// the CIRCUITPY drive stays reachable.
+#define CIRCUITPY_USB_ROLE_SWITCH (CIRCUITPY_USB_DEVICE && CIRCUITPY_USB_HOST &&     CIRCUITPY_USB_DEVICE_INSTANCE == CIRCUITPY_USB_HOST_INSTANCE)
 
 #if CIRCUITPY_USB_ROLE_SWITCH
-// Reads the setting. Call once, after the filesystem is mounted and safe mode
-// is decided, and before boot.py.
-void usb_mode_init(void);
-// True when the controller runs as a host. False until usb_mode_init().
+// True once usb_host.Port has taken the controller (from boot.py). Lasts until
+// the next hard reset, like the other boot.py USB settings.
 bool usb_host_mode(void);
+// Called by usb_host.Port after the host stack started.
+void usb_set_host_mode(void);
 #endif
 
 

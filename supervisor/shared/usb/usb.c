@@ -13,9 +13,7 @@
 #include "shared/readline/readline.h"
 
 #if CIRCUITPY_USB_ROLE_SWITCH
-#include <string.h>
-#include "supervisor/shared/safe_mode.h"
-#include "supervisor/shared/settings.h"
+#include "supervisor/filesystem.h"
 #endif
 
 #if CIRCUITPY_STATUS_BAR
@@ -120,27 +118,18 @@ bool usb_host_mode(void) {
     return _usb_host_mode;
 }
 
-void usb_mode_init(void) {
-    _usb_host_mode = false;
-    // Safe mode stays a device so the CIRCUITPY drive can fix settings.toml.
-    if (get_safe_mode() != SAFE_MODE_NONE) {
-        return;
-    }
-    #if CIRCUITPY_SETTINGS_TOML
-    char mode[8];
-    if (settings_get_str("CIRCUITPY_USB_MODE", mode, sizeof(mode)) == SETTINGS_OK &&
-        strcmp(mode, "host") == 0) {
-        _usb_host_mode = true;
-    }
-    #endif
+void usb_set_host_mode(void) {
+    _usb_host_mode = true;
 }
 #endif
 
 void usb_init(void) {
     #if CIRCUITPY_USB_ROLE_SWITCH
     if (usb_host_mode()) {
-        // The controller is reserved for usb_host.Port, which starts the host
+        // boot.py made the controller a host (usb_host.Port), which runs the host
         // stack. No device: no descriptors, no device PHY, no tud_init().
+        // No USB drive either, so code may write CIRCUITPY, as on a board without USB.
+        filesystem_set_internal_writable_by_usb(false);
         post_usb_init();
         return;
     }

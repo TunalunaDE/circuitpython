@@ -532,7 +532,7 @@ CIRCUITPY_ESP_USB_SERIAL_JTAG ?= 0
 
 # One full-speed USB controller (TinyUSB rhport 0), shared by USB device and,
 # when CIRCUITPY_USB_HOST = 1, USB host. The role is picked at startup
-# (CIRCUITPY_USB_MODE in settings.toml, see supervisor/usb.h).
+# (usb_host.Port in boot.py makes it a host, see supervisor/usb.h).
 CFLAGS += -DCIRCUITPY_USB_HOST_INSTANCE=0
 
 #### esp32s3 ##########################################################
@@ -555,7 +555,7 @@ CIRCUITPY_AUDIOMIXER_USE_PORT_MIX ?= 1
 
 # One full-speed USB controller (TinyUSB rhport 0), shared by USB device and,
 # when CIRCUITPY_USB_HOST = 1, USB host. The role is picked at startup
-# (CIRCUITPY_USB_MODE in settings.toml, see supervisor/usb.h).
+# (usb_host.Port in boot.py makes it a host, see supervisor/usb.h).
 CFLAGS += -DCIRCUITPY_USB_HOST_INSTANCE=0
 
 endif

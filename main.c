@@ -1112,12 +1112,6 @@ int __attribute__((used)) main(void) {
         set_safe_mode(wait_for_safe_mode_reset());
     }
 
-    #if CIRCUITPY_USB_ROLE_SWITCH
-    // Pick device or host for the shared USB controller from settings.toml,
-    // before boot.py, which may already open a usb_host.Port.
-    usb_mode_init();
-    #endif
-
     #if CIRCUITPY_BLEIO
     // Early init so that a reset press can cause BLE public advertising. Need the filesystem to
     // read settings.toml.
@@ -1163,12 +1157,7 @@ int __attribute__((used)) main(void) {
     // By default our internal flash is readonly to local python code and
     // writable over USB. Set it here so that safemode.py or boot.py can change it.
     filesystem_set_internal_concurrent_write_protection(true);
-    #if CIRCUITPY_USB_ROLE_SWITCH
-    // In host mode there is no USB drive, so code may write like on a board without USB.
-    filesystem_set_internal_writable_by_usb(!usb_host_mode());
-    #else
     filesystem_set_internal_writable_by_usb(CIRCUITPY_USB_DEVICE == 1);
-    #endif
 
     #if CIRCUITPY_SAFEMODE_PY
     // Run safemode.py if we ARE in safe mode.

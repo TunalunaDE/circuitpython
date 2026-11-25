@@ -96,9 +96,10 @@ usb_host_port_obj_t *common_hal_usb_host_port_construct(const mcu_pin_obj_t *dp,
         raise_ValueError_invalid_pins();
     }
     #if CIRCUITPY_USB_ROLE_SWITCH
-    // The controller already runs as a USB device (CIRCUITPY drive, REPL).
-    if (!usb_host_mode()) {
-        mp_raise_RuntimeError(MP_ERROR_TEXT("USB is in device mode. Set CIRCUITPY_USB_MODE = \"host\" in settings.toml and reset."));
+    // The one controller is either a device or a host. After boot.py the device
+    // stack runs (CIRCUITPY drive, REPL), so only boot.py can make it a host.
+    if (!usb_host_mode() && tud_inited()) {
+        mp_raise_RuntimeError(MP_ERROR_TEXT("USB is a device. Create usb_host.Port in boot.py to make it a host."));
     }
     #endif
     usb_host_port_obj_t *self = &usb_host_instance;
@@ -122,6 +123,10 @@ usb_host_port_obj_t *common_hal_usb_host_port_construct(const mcu_pin_obj_t *dp,
         host_phy = NULL;
         CHECK_ESP_RESULT(ESP_FAIL);
     }
+    #if CIRCUITPY_USB_ROLE_SWITCH
+    // From now on usb_init() leaves the controller to the host.
+    usb_set_host_mode();
+    #endif
     // The port is never deinited, so neither is the task. It is the only
     // caller of tuh_task_ext(), which is why it only starts after tuh_init().
     // This runs on the VM, so xPortGetCoreID() is CircuitPython's core.
